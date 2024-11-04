@@ -143,6 +143,41 @@ function getBestResolution(videoPaths) {
   });
 }
 
+// function processVideo(videoPath, outputResolution) {
+//   return new Promise((resolve, reject) => {
+//     // Generate a safe output filename
+//     const sanitizedBaseName = path
+//       .basename(videoPath)
+//       .replace(/[^a-z0-9_\-\.]/gi, '_');
+//     const outputPath = path.join(
+//       path.dirname(videoPath),
+//       'processed_' + sanitizedBaseName
+//     );
+
+//     // Define filters with escaped commas
+//     const scaleFilter = `scale=w=if(gt(a\\,0.5625)\\,${outputResolution.width}\\,-2):h=if(gt(a\\,0.5625)\\,-2\\,${outputResolution.height})`;
+//     const padFilter = `pad=${outputResolution.width}:${outputResolution.height}:(ow-iw)/2:(oh-ih)/2`;
+
+//     ffmpeg(videoPath)
+//       .videoFilters([scaleFilter, padFilter])
+//       .outputOptions('-c:v', 'libx264', '-preset', 'fast', '-crf', '23')
+//       .outputOptions('-c:a', 'copy')
+//       .on('start', (commandLine) => {
+//         console.log('Spawned FFmpeg with command:', commandLine);
+//       })
+//       .on('stderr', (stderrLine) => {
+//         console.error('FFmpeg stderr:', stderrLine);
+//       })
+//       .on('error', (err, stdout, stderr) => {
+//         console.error('FFmpeg Error:', err.message);
+//         console.error('FFmpeg Stdout:', stdout);
+//         console.error('FFmpeg Stderr:', stderr);
+//         reject(err);
+//       })
+//       .on('end', () => resolve(outputPath))
+//       .save(outputPath);
+//   });
+// }
 function processVideo(videoPath, outputResolution) {
   return new Promise((resolve, reject) => {
     // Generate a safe output filename
@@ -154,27 +189,39 @@ function processVideo(videoPath, outputResolution) {
       'processed_' + sanitizedBaseName
     );
 
-    // Define filters with escaped commas
-    const scaleFilter = `scale=w=if(gt(a\\,0.5625)\\,${outputResolution.width}\\,-2):h=if(gt(a\\,0.5625)\\,-2\\,${outputResolution.height})`;
-    const padFilter = `pad=${outputResolution.width}:${outputResolution.height}:(ow-iw)/2:(oh-ih)/2`;
+    // Ensure output resolution is provided
+    const width =  1080;
+    const height =  1920;
+
+    // Calculate the aspect ratio
+    const aspectRatio = width / height; // For 1080x1920, aspectRatio = 0.5625
+
+    // Escape commas in the 'if' functions
+    const scaleFilter =
+      `[0:v]scale=${width}:${height},boxblur=10:1[bg];` +
+      `[0:v]scale=w=if(gt(a\\,${aspectRatio})\\,${width}\\,-2):h=if(gt(a\\,${aspectRatio})\\,-2\\,${height})[fg];` +
+      `[bg][fg]overlay=(W-w)/2:(H-h)/2`;
 
     ffmpeg(videoPath)
-      .videoFilters([scaleFilter, padFilter])
-      .outputOptions('-c:v', 'libx264', '-preset', 'fast', '-crf', '23')
-      .outputOptions('-c:a', 'copy')
+      .complexFilter(scaleFilter)
+      .videoCodec('libx264')
+      .audioCodec('aac')
+      .audioChannels(2)
+      .outputOptions('-preset', 'fast', '-crf', '23')
       .on('start', (commandLine) => {
         console.log('Spawned FFmpeg with command:', commandLine);
       })
       .on('stderr', (stderrLine) => {
         console.error('FFmpeg stderr:', stderrLine);
       })
-      .on('error', (err, stdout, stderr) => {
-        console.error('FFmpeg Error:', err.message);
-        console.error('FFmpeg Stdout:', stdout);
-        console.error('FFmpeg Stderr:', stderr);
+      .on('error', (err) => {
+        console.error('Error during processing:', err);
         reject(err);
       })
-      .on('end', () => resolve(outputPath))
+      .on('end', () => {
+        console.log('Processed video saved:', outputPath);
+        resolve(outputPath);
+      })
       .save(outputPath);
   });
 }
