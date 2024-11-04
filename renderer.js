@@ -1,165 +1,97 @@
 // renderer.js
 
-const { ipcRenderer } = require("electron");
-const fs = require("fs");
-const path = require("path");
-const ffmpegPath = require("ffmpeg-static");
-const ffmpeg = require("fluent-ffmpeg");
-ffmpeg.setFfmpegPath(ffmpegPath);
+const videoListContainer = document.getElementById('video-list-container');
+const videoPreview = document.getElementById('video-preview');
+const combineVideosBtn = document.getElementById('combine-videos-btn');
+
+let allVideoFiles = [];
+let selectedVideos = [];
 
 document
-  .getElementById("select-folder-btn")
-  .addEventListener("click", async () => {
-    const folderPath = await ipcRenderer.invoke("select-folder");
+  .getElementById('select-folder-btn')
+  .addEventListener('click', async () => {
+    const folderPath = await window.electronAPI.selectFolder();
     if (folderPath) {
       document.getElementById(
-        "status"
+        'status'
       ).innerText = `Selected folder: ${folderPath}`;
-      combineVideos(folderPath);
+      await displayVideoThumbnails(folderPath);
+      combineVideosBtn.disabled = false;
     } else {
-      document.getElementById("status").innerText = "No folder selected.";
+      document.getElementById('status').innerText = 'No folder selected.';
     }
   });
 
-async function combineVideos(folderPath) {
-  try {
-    const videoFiles = fs
-      .readdirSync(folderPath)
-      .filter((file) => {
-        const ext = path.extname(file).toLowerCase();
-        return [".mp4", ".mov", ".avi", ".mkv"].includes(ext);
-      })
-      .map((file) => path.join(folderPath, file));
-
-    if (videoFiles.length === 0) {
-      document.getElementById("status").innerText =
-        "No video files found in the selected folder.";
-      return;
-    }
-
-    // Shuffle and select videos
-    videoFiles.sort(() => 0.5 - Math.random());
-    let totalDuration = 0;
-    const selectedVideos = [];
-
-    for (const video of videoFiles) {
-      const duration = await getVideoDuration(video);
-      if (totalDuration < 60) {
-        totalDuration += duration;
-        selectedVideos.push(video);
-      } else {
-        break;
-      }
-    }
-
-    // Get the best resolution
-    const bestResolution = await getBestResolution(selectedVideos);
-
-    // Process videos to adjust aspect ratio and resolution
-    const processedVideos = await Promise.all(
-      selectedVideos.map((video) => processVideo(video, bestResolution))
-    );
-
-    // Combine videos
-    await mergeVideos(processedVideos, folderPath);
-
-    document.getElementById("status").innerText =
-      "Videos combined successfully!";
-  } catch (error) {
-    console.error(error);
-    document.getElementById("status").innerText =
-      "An error occurred during processing.";
+combineVideosBtn.addEventListener('click', () => {
+  if (selectedVideos.length === 0) {
+    alert('Please select at least one video to combine.');
+    return;
   }
-}
+  window.electronAPI.startProcessing(selectedVideos);
+});
 
-function getVideoDuration(videoPath) {
-  return new Promise((resolve, reject) => {
-    ffmpeg.ffprobe(videoPath, (err, metadata) => {
-      if (err) return reject(err);
-      resolve(metadata.format.duration);
+async function displayVideoThumbnails(folderPath) {
+  allVideoFiles = await window.electronAPI.getVideoFiles(folderPath);
+  selectedVideos = [...allVideoFiles]; // By default, all videos are selected
+
+  videoListContainer.innerHTML = '';
+
+  allVideoFiles.forEach((videoPath, index) => {
+    const videoThumbnail = document.createElement('div');
+    videoThumbnail.classList.add('video-thumbnail', 'selected');
+    videoThumbnail.dataset.index = index;
+
+    const videoElement = document.createElement('video');
+    videoElement.src = videoPath;
+    videoElement.currentTime = 1; // Seek to 1 second to generate thumbnail
+    videoElement.muted = true;
+
+    videoElement.addEventListener('loadeddata', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 150;
+      canvas.height =
+        (videoElement.videoHeight / videoElement.videoWidth) * 150;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+      const img = document.createElement('img');
+      img.src = canvas.toDataURL();
+      videoThumbnail.appendChild(img);
     });
-  });
-}
 
-function getBestResolution(videoPaths) {
-  return new Promise((resolve, reject) => {
-    let maxWidth = 0;
-    let maxHeight = 0;
-    let processed = 0;
+    // Label showing the video file name
+    const label = document.createElement('label');
+    label.textContent = getFileName(videoPath);
+    videoThumbnail.appendChild(label);
 
-    videoPaths.forEach((videoPath) => {
-      ffmpeg.ffprobe(videoPath, (err, metadata) => {
-        if (err) return reject(err);
-        const stream = metadata.streams.find((s) => s.width && s.height);
-        if (stream.width > maxWidth) {
-          maxWidth = stream.width;
-        }
-        if (stream.height > maxHeight) {
-          maxHeight = stream.height;
-        }
-        processed++;
-        if (processed === videoPaths.length) {
-          // Calculate the output resolution with a 9:16 aspect ratio
-          let outputWidth, outputHeight;
-          if ((maxHeight / 16) * 9 <= maxWidth) {
-            // Height is limiting factor
-            outputHeight = maxHeight;
-            outputWidth = Math.round((outputHeight / 16) * 9);
-          } else {
-            // Width is limiting factor
-            outputWidth = maxWidth;
-            outputHeight = Math.round((outputWidth / 9) * 16);
-          }
-          resolve({ width: outputWidth, height: outputHeight });
-        }
-      });
+    // Click handler to select/deselect video
+    videoThumbnail.addEventListener('click', () => {
+      videoThumbnail.classList.toggle('selected');
+      const idx = parseInt(videoThumbnail.dataset.index);
+      const videoFile = allVideoFiles[idx];
+      if (selectedVideos.includes(videoFile)) {
+        selectedVideos = selectedVideos.filter((v) => v !== videoFile);
+      } else {
+        selectedVideos.push(videoFile);
+      }
     });
+
+    // Double-click to preview video
+    videoThumbnail.addEventListener('dblclick', () => {
+      videoPreview.src = videoPath;
+      videoPreview.play();
+    });
+
+    videoListContainer.appendChild(videoThumbnail);
   });
 }
 
-function processVideo(videoPath, bestResolution) {
-  return new Promise((resolve, reject) => {
-    const outputPath = path.join(
-      path.dirname(videoPath),
-      "processed_" + path.basename(videoPath)
-    );
-    ffmpeg(videoPath)
-      .videoFilters(
-        `scale=${bestResolution.width}:${bestResolution.height}:force_original_aspect_ratio=increase`,
-        "crop=" + bestResolution.width + ":" + bestResolution.height
-      )
-      .outputOptions("-c:a copy")
-      .on("end", () => resolve(outputPath))
-      .on("error", reject)
-      .save(outputPath);
-  });
+function getFileName(filePath) {
+  // Extracts the file name from the full path
+  return filePath.replace(/^.*[\\\/]/, '');
 }
 
-function mergeVideos(videoPaths, outputDir) {
-  return new Promise((resolve, reject) => {
-    const outputPath = path.join(outputDir, "combined_output.mp4");
-
-    // Create a file list for FFmpeg
-    const fileListPath = path.join(outputDir, "filelist.txt");
-    const fileListContent = videoPaths
-      .map((videoPath) => `file '${videoPath}'`)
-      .join("\n");
-    fs.writeFileSync(fileListPath, fileListContent);
-
-    ffmpeg()
-      .input(fileListPath)
-      .inputOptions(["-f", "concat", "-safe", "0"])
-      .outputOptions("-c", "copy")
-      .on("end", () => {
-        // Clean up temporary files
-        videoPaths.forEach((file) => fs.unlinkSync(file));
-        fs.unlinkSync(fileListPath);
-        resolve();
-      })
-      .on("error", (err) => {
-        console.error("Error during merging:", err);
-        reject(err);
-      })
-      .save(outputPath);
-  });
-}
+// Listen for status updates from the main process
+window.electronAPI.onCombineStatus((event, message) => {
+  document.getElementById('status').innerText = message;
+});

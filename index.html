@@ -2,15 +2,26 @@
 
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>Video Combiner</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <h1>Video Combiner Application</h1>
-    <button id="select-folder-btn">Select Folder</button>
-    <p id="status">No folder selected.</p>
-    <script src="renderer.js"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Video Combiner</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body>
+  <h1>Video Combiner Application</h1>
+  <button id="select-folder-btn">Select Folder</button>
+  <button id="combine-videos-btn" disabled>Combine Videos</button>
+  <p id="status">No folder selected.</p>
+
+  <div id="video-list-container">
+    <!-- Thumbnails of videos will be displayed here -->
+  </div>
+
+  <video id="video-preview" controls></video>
+
+  <script src="renderer.js"></script>
+</body>
+
 </html>

@@ -1,0 +1,6 @@
+{
+  "watch": ["main.js", "preload.js"],
+  "ignore": ["*.css", "*.html", "renderer.js"],
+  "exec": "electron .",
+  "ext": "js,json"
+}
