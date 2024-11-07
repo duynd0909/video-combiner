@@ -20,6 +20,7 @@ const helpModal = document.getElementById('help-modal');
 const helpModalClose = document.getElementById('help-modal-close');
 
 const revealInExplorerBtn = document.getElementById('reveal-in-explorer-btn');
+const numOutputVideosInput = document.getElementById('num-output-videos');
 
 let allVideoFiles = [];
 let selectedVideos = [];
@@ -226,7 +227,8 @@ window.addEventListener('click', (event) => {
 function handleCombineComplete(message, savePath) {
   document.getElementById('status').innerText = message;
   if (message.includes('successfully')) {
-    openVideoModal(savePath);
+    window.electronAPI.openPath(savePath);
+    // openVideoModal(savePath);
   }
 }
 
@@ -242,6 +244,8 @@ window.electronAPI.onCombineStatus((event, message, savePath) => {
 
 // Event listener for the combine videos button
 combineVideosBtn.addEventListener('click', async () => {
+  const numOutputs = parseInt(numOutputVideosInput.value, 10);
+
   if (selectedVideos.length === 0) {
     alert('Chọn ít nhất 1 video để ghép.');
     return;
@@ -261,24 +265,17 @@ combineVideosBtn.addEventListener('click', async () => {
   progressContainer.style.display = 'block';
   progressBar.style.width = '0%';
   progressLabel.innerText = 'Bắt đầu xử lý...';
-  window.electronAPI.startProcessing(selectedVideos, savePath, maxDuration);
+  window.electronAPI.startProcessing(
+    selectedVideos,
+    savePath,
+    numOutputs,
+    maxDuration
+  );
 });
-function getTimestamp() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are zero-based
-  const day = String(now.getDate()).padStart(2, '0');
 
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-
-  return `${year}${month}${day}_${hours}${minutes}${seconds}`;
-}
 // Function to prompt for save location
 async function promptSaveLocation() {
-  const defaultPath = getTimestamp() + '_combined_output.mp4';
-  const savePath = await window.electronAPI.selectSaveFile(defaultPath);
+  const savePath = await window.electronAPI.selectSaveDirectory();
   return savePath;
 }
 

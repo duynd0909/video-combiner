@@ -79,62 +79,137 @@ ipcMain.handle('get-video-files', async (event, folderPath) => {
 });
 
 // Handle video combination
+// Modify 'start-processing' handler to include numOutputs
 ipcMain.handle(
   'start-processing',
-  async (event, selectedVideos, savePath, maxDuration) => {
+  async (event, selectedVideos, saveDirectory, numOutputs, maxDuration) => {
     try {
-      await combineVideos(selectedVideos, savePath, maxDuration);
+      await combineVideos(
+        selectedVideos,
+        saveDirectory,
+        numOutputs,
+        maxDuration
+      );
       event.sender.send(
         'combine-status',
         'Ghép video thành công (successfully)!',
-        savePath
+        saveDirectory
       );
     } catch (error) {
       console.error(error);
-      event.sender.send('combine-status', error);
+      event.sender.send('combine-status', error.message);
     }
   }
 );
 
-ipcMain.handle('select-save-file', async (event, defaultPath) => {
-  const result = await dialog.showSaveDialog({
-    title: 'Lưu Video Đã Ghép',
-    defaultPath: defaultPath,
-    filters: [{ name: 'Video Files', extensions: ['mp4'] }],
+// ipcMain.handle('select-save-file', async (event, defaultPath) => {
+//   const result = await dialog.showSaveDialog({
+//     title: 'Lưu Video Đã Ghép',
+//     defaultPath: defaultPath,
+//     filters: [{ name: 'Video Files', extensions: ['mp4'] }],
+//   });
+//   return result.canceled ? null : result.filePath;
+// });
+// Handle selecting save directory
+ipcMain.handle('select-save-directory', async () => {
+  const result = await dialog.showOpenDialog({
+    title: 'Select Output Directory',
+    properties: ['openDirectory'],
   });
-  return result.canceled ? null : result.filePath;
+  return result.canceled ? null : result.filePaths[0];
 });
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    // Generate a random index between 0 and i
+    const j = Math.floor(Math.random() * (i + 1));
+    // Swap elements at indices i and j
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+function splitVideosIntoGroups(videos, numGroups) {
+  const groups = Array.from({ length: numGroups }, () => []);
 
-async function combineVideos(selectedVideos, outputPath, maxDuration) {
+  // Shuffle the videos to ensure random distribution
+  const shuffledVideos = shuffleArray([...videos]);
+
+  // Assign each video to a group in a round-robin fashion
+  for (let i = 0; i < shuffledVideos.length; i++) {
+    const groupIndex = i % numGroups;
+    groups[groupIndex].push(shuffledVideos[i]);
+  }
+
+  // If numGroups > numVideos, some groups will have duplicate videos
+  // To distribute duplicates, randomly assign remaining slots
+  if (numGroups > shuffledVideos.length) {
+    for (let i = shuffledVideos.length; i < numGroups; i++) {
+      const randomIndex = Math.floor(Math.random() * shuffledVideos.length);
+      groups[i].push(shuffledVideos[randomIndex]);
+    }
+  }
+
+  return groups;
+}
+function getTimestamp() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+  const day = String(now.getDate()).padStart(2, '0');
+
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+
+  return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+}
+// Updated combineVideos function
+async function combineVideos(
+  selectedVideos,
+  saveDirectory,
+  numOutputs,
+  maxDuration
+) {
+  const videoGroups = splitVideosIntoGroups(selectedVideos, numOutputs);
+
+  for (let i = 0; i < videoGroups.length; i++) {
+    const group = videoGroups[i];
+    const outputPath = path.join(
+      saveDirectory,
+      `${getTimestamp()}_output_${i + 1}.mp4`
+    );
+    await combineVideoGroup(group, outputPath, maxDuration);
+  }
+}
+// New function to process and merge a single group
+async function combineVideoGroup(selectedVideos, outputPath, maxDuration) {
   let processedVideos = [];
   let cumulativeDuration = 0;
 
   try {
     for (const videoPath of selectedVideos) {
-      // Get the duration of the video
       const videoDuration = await getVideoDuration(videoPath);
 
-      if (cumulativeDuration + videoDuration < maxDuration) {
-        // Process the video as usual
-        const processedVideo = await processVideo(videoPath);
-        processedVideos.push(processedVideo);
-        cumulativeDuration += videoDuration;
-      } else {
-        // Calculate remaining time
+      if (maxDuration && cumulativeDuration + videoDuration > maxDuration) {
         const remainingTime = maxDuration - cumulativeDuration;
-
         if (remainingTime > 0) {
-          // Process and trim the video to the remaining time
           const processedVideo = await processVideo(videoPath, remainingTime);
           processedVideos.push(processedVideo);
           cumulativeDuration += remainingTime;
         }
-        // We've reached maxDuration, so break the loop
         break;
+      } else {
+        const processedVideo = await processVideo(videoPath);
+        processedVideos.push(processedVideo);
+        cumulativeDuration += videoDuration;
       }
     }
 
     await mergeVideos(processedVideos, outputPath);
+
+    mainWindow.webContents.send('processing-progress', {
+      stage: 'group-completed',
+      outputPath,
+    });
   } catch (error) {
     console.error('Lỗi trong quá trình xử lý:', error);
     cleanupProcessedVideos(processedVideos);
@@ -279,7 +354,7 @@ function processVideo(videoPath, duration = null) {
 function mergeVideos(videoPaths, outputPath) {
   return new Promise((resolve, reject) => {
     const outputDir = path.dirname(outputPath);
-
+    console.log('Merging', outputDir);
     // Create a file list for FFmpeg
     const fileListPath = path.join(outputDir, 'filelist.txt');
     const fileListContent = videoPaths

@@ -8,16 +8,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectVideos: () => ipcRenderer.invoke('dialog:selectVideos'),
   getVideoFiles: (folderPath) =>
     ipcRenderer.invoke('get-video-files', folderPath),
-  startProcessing: (selectedVideos, savePath, maxDuration) =>
+  // Method to start processing
+  startProcessing: (selectedVideos, saveDirectory, numOutputs, maxDuration) =>
     ipcRenderer.invoke(
       'start-processing',
       selectedVideos,
-      savePath,
+      saveDirectory,
+      numOutputs,
       maxDuration
     ),
   onCombineStatus: (callback) => ipcRenderer.on('combine-status', callback),
-  selectSaveFile: (defaultPath) =>
-    ipcRenderer.invoke('select-save-file', defaultPath),
+  selectSaveDirectory: () => ipcRenderer.invoke('select-save-directory'),
+
   onProcessingProgress: (callback) =>
     ipcRenderer.on('processing-progress', callback),
   openPath: (path) => shell.showItemInFolder(path),
