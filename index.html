@@ -1,25 +1,135 @@
-<!-- index.html -->
-
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 
 <head>
   <meta charset="UTF-8" />
   <title>Video Combiner</title>
   <link rel="stylesheet" href="./style.css" />
+  <!-- Thêm phông chữ Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
-  <h1>Video Combiner Application</h1>
-  <button id="select-folder-btn">Select Folder</button>
-  <button id="combine-videos-btn" disabled>Combine Videos</button>
-  <p id="status">No folder selected.</p>
+  <!-- Header với thanh điều hướng -->
+  <header>
+    <div class="container">
+      <h1>Video Combiner</h1>
+      <nav>
+        <button id="select-folder-btn">Chọn Thư Mục</button>
+        <button id="select-videos-btn">Chọn Video</button>
+        <button id="help-btn">Hướng Dẫn</button>
 
-  <div id="video-list-container">
-    <!-- Thumbnails of videos will be displayed here -->
+      </nav>
+    </div>
+  </header>
+
+  <!-- Khu vực chính -->
+  <main>
+    <div class="container">
+      <!-- Cài đặt -->
+      <section id="settings">
+        <h2>Cài Đặt</h2>
+        <div class="setting-item">
+          <label for="max-duration">Thời Lượng Tối Đa (giây):</label>
+          <input type="number" id="max-duration" min="10" value="60" />
+        </div>
+        <button id="combine-videos-btn" disabled>Ghép Video</button>
+        <p id="status">Chưa chọn thư mục.</p>
+      </section>
+
+      <!-- Thanh tiến trình -->
+      <div id="progress-container" style="display: none;">
+        <div id="progress-bar"></div>
+        <span id="progress-label"></span>
+      </div>
+
+      <!-- Danh sách video -->
+      <section id="video-list-container">
+        <!-- Hình thu nhỏ của video sẽ hiển thị ở đây -->
+      </section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>&copy; 2023 Ứng Dụng Ghép Video</p>
+    </div>
+  </footer>
+
+  <!-- Help Modal -->
+  <div id="help-modal" class="modal">
+    <div class="modal-content">
+      <span id="help-modal-close" class="close-button">&times;</span>
+      <h2>Hướng Dẫn Sử Dụng Ứng Dụng Ghép Video</h2>
+      <p>
+        Chào mừng bạn đến với ứng dụng Ghép Video! Ứng dụng này cho phép bạn ghép nhiều video thành một video duy nhất
+        với thời lượng tối đa được thiết lập. Dưới đây là hướng dẫn chi tiết:
+      </p>
+      <ol>
+        <li>
+          <strong>Chọn Thư Mục:</strong> Nhấn nút "<strong>Chọn Thư Mục</strong>" để chọn một thư mục chứa các video bạn
+          muốn ghép. Ứng dụng sẽ tự động lấy tất cả các video trong thư mục này.
+        </li>
+        <li>
+          <strong>Hoặc Chọn Video:</strong> Nhấn nút "<strong>Chọn Video</strong>" để chọn từng video cụ thể từ máy tính
+          của bạn. Bạn có thể chọn nhiều video cùng lúc.
+        </li>
+        <li>
+          <strong>Thiết Lập Thời Lượng Tối Đa:</strong> Trong mục "<strong>Thời Lượng Tối Đa (giây)</strong>", nhập vào
+          thời lượng tối đa cho video ghép cuối cùng. Ứng dụng sẽ đảm bảo video kết quả không vượt quá thời lượng này.
+        </li>
+        <li>
+          <strong>Logic Ghép Video:</strong> Ứng dụng sẽ thực hiện các bước sau:
+          <ul>
+            <li>
+              <strong>Xử Lý Video:</strong> Mỗi video được chọn sẽ được xử lý để có độ phân giải phù hợp (1080x1920) và
+              tỷ lệ khung hình 9:16. Nếu video vượt quá thời lượng tối đa, video cuối cùng sẽ được cắt ngắn để phù hợp.
+            </li>
+            <li>
+              <strong>Ghép Video:</strong> Các video đã xử lý sẽ được ghép lại với nhau theo thứ tự bạn đã chọn để tạo
+              thành một video duy nhất.
+            </li>
+            <li>
+              <strong>Đảm Bảo Thời Lượng:</strong> Ứng dụng sẽ theo dõi tổng thời lượng của các video. Nếu việc thêm một
+              video vượt quá thời lượng tối đa, video đó sẽ được cắt ngắn hoặc bỏ qua để đảm bảo video kết quả không
+              vượt quá giới hạn.
+            </li>
+          </ul>
+        </li>
+        <li>
+          <strong>Ghép Video:</strong> Sau khi thiết lập, nhấn nút "<strong>Ghép Video</strong>" để bắt đầu quá trình
+          ghép. Bạn có thể theo dõi tiến trình thông qua thanh tiến trình hiển thị phần trăm hoàn thành.
+        </li>
+        <li>
+          <strong>Lưu Video Kết Quả:</strong> Khi quá trình ghép hoàn tất, ứng dụng sẽ yêu cầu bạn chọn nơi lưu video
+          kết quả. Bạn có thể chọn thư mục và đặt tên cho video mới.
+        </li>
+        <li>
+          <strong>Xem Video Kết Quả:</strong> Sau khi lưu, bạn có thể mở video kết quả để xem thành quả của mình.
+        </li>
+        <li>
+          <strong>Trợ Giúp:</strong> Nếu cần trợ giúp, nhấn nút "<strong>Hướng Dẫn</strong>" (nút mà bạn đã nhấn để xem
+          hướng dẫn này).
+        </li>
+      </ol>
+      <p>
+        Nếu bạn có bất kỳ câu hỏi hoặc cần hỗ trợ thêm, vui lòng liên hệ với chúng tôi. Chúc bạn sử dụng ứng dụng vui vẻ
+        và tạo ra những video ấn tượng!
+      </p>
+    </div>
   </div>
 
-  <video id="video-preview" controls></video>
+  <!-- Video Modal -->
+  <div id="video-modal" class="modal">
+    <div class="modal-content">
+      <button id="reveal-in-explorer-btn">Hiển Thị Trong Thư Mục</button>
+      <span id="modal-close" class="close-button">&times;</span>
+      <video id="modal-video-player" controls></video>
+    </div>
+  </div>
 
   <script src="renderer.js"></script>
 </body>

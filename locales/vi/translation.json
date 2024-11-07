@@ -1,0 +1,20 @@
+{
+  "appTitle": "Ứng dụng Ghép Video",
+  "selectFolder": "Chọn Thư Mục",
+  "selectVideos": "Chọn Video",
+  "combineVideos": "Ghép Video",
+  "removeAll": "Xóa Tất Cả Video Đã Chọn",
+  "statusNoSelection": "Chưa chọn thư mục hoặc video nào.",
+  "numberOfClips": "Số Lượng Clip:",
+  "maxDuration": "Thời Lượng Tối Đa (giây):",
+  "selectAtLeastOneVideo": "Vui lòng chọn ít nhất một video để ghép.",
+  "noSaveLocation": "Không chọn nơi lưu. Hủy ghép video.",
+  "combinedSuccessfully": "Ghép video thành công!",
+  "remove": "Xóa",
+  "selectedFolder": "Thư mục đã chọn: {{folderPath}}",
+  "selectedVideosCount": "Đã chọn {{count}} video.",
+  "noFolderSelected": "Không có thư mục nào được chọn.",
+  "noVideosSelected": "Không có video nào được chọn.",
+  "play": "Phát",
+  "language": "Ngôn ngữ"
+}

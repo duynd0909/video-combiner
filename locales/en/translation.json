@@ -1,0 +1,20 @@
+{
+  "appTitle": "Video Combiner Application",
+  "selectFolder": "Select Folder",
+  "selectVideos": "Select Videos",
+  "combineVideos": "Combine Videos",
+  "removeAll": "Remove All Selected Videos",
+  "statusNoSelection": "No folder or videos selected.",
+  "numberOfClips": "Number of Clips:",
+  "maxDuration": "Max Duration (seconds):",
+  "selectAtLeastOneVideo": "Please select at least one video to combine.",
+  "noSaveLocation": "No save location selected. Combining videos canceled.",
+  "combinedSuccessfully": "Videos combined successfully!",
+  "remove": "Remove",
+  "selectedFolder": "Selected folder: {{folderPath}}",
+  "selectedVideosCount": "Selected {{count}} video(s).",
+  "noFolderSelected": "No folder selected.",
+  "noVideosSelected": "No videos selected.",
+  "play": "Play",
+  "language": "Language"
+}

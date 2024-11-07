@@ -1,39 +1,77 @@
 // renderer.js
 
 const videoListContainer = document.getElementById('video-list-container');
-const videoPreview = document.getElementById('video-preview');
 const combineVideosBtn = document.getElementById('combine-videos-btn');
+const selectVideosBtn = document.getElementById('select-videos-btn');
+const selectFolderBtn = document.getElementById('select-folder-btn');
+
+const videoModal = document.getElementById('video-modal');
+const modalClose = document.getElementById('modal-close');
+const modalVideoPlayer = document.getElementById('modal-video-player');
+
+// Element to display progress
+const progressContainer = document.getElementById('progress-container');
+const progressBar = document.getElementById('progress-bar');
+const progressLabel = document.getElementById('progress-label');
+
+// Help Modal Elements
+const helpBtn = document.getElementById('help-btn');
+const helpModal = document.getElementById('help-modal');
+const helpModalClose = document.getElementById('help-modal-close');
+
+const revealInExplorerBtn = document.getElementById('reveal-in-explorer-btn');
 
 let allVideoFiles = [];
 let selectedVideos = [];
-
-document
-  .getElementById('select-folder-btn')
-  .addEventListener('click', async () => {
-    const folderPath = await window.electronAPI.selectFolder();
-    if (folderPath) {
-      document.getElementById(
-        'status'
-      ).innerText = `Selected folder: ${folderPath}`;
-      await displayVideoThumbnails(folderPath);
-      combineVideosBtn.disabled = false;
-    } else {
-      document.getElementById('status').innerText = 'No folder selected.';
-    }
-  });
-
-combineVideosBtn.addEventListener('click', () => {
-  if (selectedVideos.length === 0) {
-    alert('Please select at least one video to combine.');
-    return;
+// Event listener for select videos button
+selectVideosBtn.addEventListener('click', async () => {
+  const videoPaths = await window.electronAPI.selectVideos();
+  if (videoPaths && videoPaths.length > 0) {
+    document.getElementById(
+      'status'
+    ).innerText = `Selected ${videoPaths.length} video(s).`;
+    await displayVideoThumbnailsFromFiles(videoPaths);
+  } else {
+    document.getElementById('status').innerText = 'Chọn ít nhất 1 video.';
   }
-  window.electronAPI.startProcessing(selectedVideos);
 });
+// Event listener for select folder button
+selectFolderBtn.addEventListener('click', async () => {
+  const folderPath = await window.electronAPI.selectFolder();
+  if (folderPath) {
+    document.getElementById(
+      'status'
+    ).innerText = `Selected folder: ${folderPath}`;
+    // Clear previous selections
+    allVideoFiles = [];
+    selectedVideos = [];
+    videoListContainer.innerHTML = '';
 
-async function displayVideoThumbnails(folderPath) {
-  allVideoFiles = await window.electronAPI.getVideoFiles(folderPath);
-  selectedVideos = [...allVideoFiles]; // By default, all videos are selected
+    // Get video files from the selected folder
+    allVideoFiles = await window.electronAPI.getVideoFiles(folderPath);
+    selectedVideos = [...allVideoFiles];
+    await displayVideoThumbnails();
+  } else {
+    document.getElementById('status').innerText = 'Chọn ít nhất 1 video.';
+  }
+});
+// Function to display video thumbnails from selected files
+async function displayVideoThumbnailsFromFiles(videoPaths) {
+  // Clear previous selections
+  allVideoFiles = [];
+  selectedVideos = [];
+  videoListContainer.innerHTML = '';
 
+  // Set the new list of video files
+  allVideoFiles = videoPaths;
+  selectedVideos = [...allVideoFiles];
+
+  // Call the function to display the thumbnails
+  await displayVideoThumbnails();
+}
+
+// Function to display video thumbnails
+async function displayVideoThumbnails() {
   videoListContainer.innerHTML = '';
 
   allVideoFiles.forEach((videoPath, index) => {
@@ -41,57 +79,258 @@ async function displayVideoThumbnails(folderPath) {
     videoThumbnail.classList.add('video-thumbnail', 'selected');
     videoThumbnail.dataset.index = index;
 
-    const videoElement = document.createElement('video');
-    videoElement.src = videoPath;
-    videoElement.currentTime = 1; // Seek to 1 second to generate thumbnail
-    videoElement.muted = true;
+    // Create an image element to hold the thumbnail
+    const img = document.createElement('img');
+    img.src = './assets/default.webp'; // Placeholder image before loading the thumbnail
+    videoThumbnail.appendChild(img);
 
-    videoElement.addEventListener('loadeddata', () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 150;
-      canvas.height =
-        (videoElement.videoHeight / videoElement.videoWidth) * 150;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+    // Generate the thumbnail
+    generateThumbnail(videoPath, img);
 
-      const img = document.createElement('img');
-      img.src = canvas.toDataURL();
-      videoThumbnail.appendChild(img);
-    });
+    // Create the play button overlay
+    const playButton = document.createElement('div');
+    playButton.classList.add('play-button');
+    videoThumbnail.appendChild(playButton);
+
+    // Create the remove button
+    const removeButton = document.createElement('span');
+    removeButton.classList.add('remove-button');
+    removeButton.innerHTML = '&times;';
+    videoThumbnail.appendChild(removeButton);
 
     // Label showing the video file name
     const label = document.createElement('label');
     label.textContent = getFileName(videoPath);
     videoThumbnail.appendChild(label);
 
-    // Click handler to select/deselect video
-    videoThumbnail.addEventListener('click', () => {
-      videoThumbnail.classList.toggle('selected');
+    // Click handler for the remove button
+    removeButton.addEventListener('click', (event) => {
+      event.stopPropagation(); // Prevent the click from toggling selection
       const idx = parseInt(videoThumbnail.dataset.index);
       const videoFile = allVideoFiles[idx];
-      if (selectedVideos.includes(videoFile)) {
-        selectedVideos = selectedVideos.filter((v) => v !== videoFile);
-      } else {
-        selectedVideos.push(videoFile);
+
+      // Remove the video from selectedVideos
+      selectedVideos = selectedVideos.filter((v) => v !== videoFile);
+
+      // Update the UI to reflect removal
+      videoThumbnail.classList.remove('selected');
+      videoThumbnail.style.opacity = '0.5'; // Optionally dim the thumbnail
+      videoThumbnail.remove();
+
+      // Disable buttons if no videos are selected
+      if (selectedVideos.length === 0) {
+        combineVideosBtn.disabled = true;
       }
     });
 
-    // Double-click to preview video
-    videoThumbnail.addEventListener('dblclick', () => {
-      videoPreview.src = videoPath;
-      videoPreview.play();
+    // Click handler to select/deselect video
+    videoThumbnail.addEventListener('click', (event) => {
+      // Ignore if the remove button was clicked or if the video is already removed
+      if (
+        event.target.classList.contains('remove-button') ||
+        !videoThumbnail.classList.contains('selected')
+      ) {
+        return;
+      }
+
+      const idx = parseInt(videoThumbnail.dataset.index);
+      const videoFile = allVideoFiles[idx];
+
+      videoThumbnail.classList.toggle('selected');
+
+      if (selectedVideos.includes(videoFile)) {
+        selectedVideos = selectedVideos.filter((v) => v !== videoFile);
+        videoThumbnail.style.opacity = '0.5'; // Optionally dim the thumbnail
+      } else {
+        selectedVideos.push(videoFile);
+        videoThumbnail.style.opacity = '1'; // Restore opacity
+      }
+
+      // Enable/disable buttons based on selection
+      if (selectedVideos.length === 0) {
+        combineVideosBtn.disabled = true;
+      } else {
+        combineVideosBtn.disabled = false;
+      }
     });
 
+    // Click handler for the play button
+    playButton.addEventListener('click', (event) => {
+      event.stopPropagation(); // Prevent the click from toggling selection
+      openVideoModal(videoPath);
+    });
     videoListContainer.appendChild(videoThumbnail);
+  });
+
+  // Enable or disable buttons based on selection
+  if (selectedVideos.length === 0) {
+    combineVideosBtn.disabled = true;
+  } else {
+    combineVideosBtn.disabled = false;
+  }
+}
+
+// Function to generate a thumbnail for a video
+function generateThumbnail(videoPath, imgElement) {
+  const video = document.createElement('video');
+  video.src = videoPath;
+  video.currentTime = 1; // Seek to 1 second to generate thumbnail
+  video.muted = true;
+
+  video.addEventListener('loadeddata', () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 150;
+    canvas.height = (video.videoHeight / video.videoWidth) * 150;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    imgElement.src = canvas.toDataURL();
+    video.remove(); // Clean up
   });
 }
 
+// Function to open the video modal and play the video
+function openVideoModal(videoPath) {
+  modalVideoPlayer.src = '';
+  modalVideoPlayer.src = videoPath;
+  videoModal.style.display = 'block';
+  // Event listener for the Reveal in Explorer button
+  revealInExplorerBtn.addEventListener('click', () => {
+    console.log(videoPath, 'event');
+
+    if (videoPath) {
+      window.electronAPI.openPath(videoPath);
+    }
+  });
+  modalVideoPlayer.play();
+}
+
+// Function to close the video modal
+function closeVideoModal() {
+  modalVideoPlayer.pause();
+  modalVideoPlayer.currentTime = 0;
+  modalVideoPlayer.src = '';
+  videoModal.style.display = 'none';
+}
+
+// Event listener for the modal close button
+modalClose.addEventListener('click', closeVideoModal);
+
+// Event listener to close the modal when clicking outside the modal content
+window.addEventListener('click', (event) => {
+  if (event.target === videoModal) {
+    closeVideoModal();
+  }
+});
+
+// Function to handle when combining videos is complete
+function handleCombineComplete(message, savePath) {
+  document.getElementById('status').innerText = message;
+  if (message.includes('successfully')) {
+    openVideoModal(savePath);
+  }
+}
+
+// Hide or reset progress bar when processing is complete
+window.electronAPI.onCombineStatus((event, message, savePath) => {
+  handleCombineComplete(message, savePath);
+
+  // Hide or reset progress bar
+  progressBar.style.width = '0%';
+  progressLabel.innerText = '';
+  progressContainer.style.display = 'none';
+});
+
+// Event listener for the combine videos button
+combineVideosBtn.addEventListener('click', async () => {
+  if (selectedVideos.length === 0) {
+    alert('Chọn ít nhất 1 video để ghép.');
+    return;
+  }
+  const savePath = await promptSaveLocation();
+  if (!savePath) {
+    alert('Vui lòng chọn đường dẫn lưu video.');
+    return;
+  }
+
+  // const numClips = parseInt(document.getElementById('num-clips').value, 10);
+  const maxDuration = parseInt(
+    document.getElementById('max-duration').value,
+    10
+  );
+  // Show progress bar
+  progressContainer.style.display = 'block';
+  progressBar.style.width = '0%';
+  progressLabel.innerText = 'Bắt đầu xử lý...';
+  window.electronAPI.startProcessing(selectedVideos, savePath, maxDuration);
+});
+function getTimestamp() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+  const day = String(now.getDate()).padStart(2, '0');
+
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+
+  return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+}
+// Function to prompt for save location
+async function promptSaveLocation() {
+  const defaultPath = getTimestamp() + '_combined_output.mp4';
+  const savePath = await window.electronAPI.selectSaveFile(defaultPath);
+  return savePath;
+}
+
+// Function to get the file name from a path
 function getFileName(filePath) {
-  // Extracts the file name from the full path
   return filePath.replace(/^.*[\\\/]/, '');
 }
 
-// Listen for status updates from the main process
-window.electronAPI.onCombineStatus((event, message) => {
-  document.getElementById('status').innerText = message;
+// // Event listener for select folder button
+// document
+//   .getElementById('select-folder-btn')
+//   .addEventListener('click', async () => {
+//     const folderPath = await window.electronAPI.selectFolder();
+//     if (folderPath) {
+//       document.getElementById(
+//         'status'
+//       ).innerText = `Selected folder: ${folderPath}`;
+//       // Get video files from the selected folder
+//       allVideoFiles = await window.electronAPI.getVideoFiles(folderPath);
+//       selectedVideos = [...allVideoFiles];
+//       await displayVideoThumbnails();
+//     } else {
+//       document.getElementById('status').innerText = 'No folder selected.';
+//     }
+//   });
+// Listen for progress updates from the main process
+// Listening for progress updates
+window.electronAPI.onProcessingProgress((event, data) => {
+  const { stage, file, percent } = data;
+
+  // Update progress bar and label
+  progressBar.style.width = `${percent}%`;
+  if (stage === 'processing') {
+    progressLabel.innerText = `Đang xử lý ${file}: ${percent}%`;
+  } else if (stage === 'merging') {
+    progressLabel.innerText = `Đang ghép video: ${percent}%`;
+  }
+});
+
+// Event listener to open the help modal
+helpBtn.addEventListener('click', () => {
+  helpModal.style.display = 'block';
+});
+
+// Event listener to close the help modal
+helpModalClose.addEventListener('click', () => {
+  helpModal.style.display = 'none';
+});
+
+// Close the modal when clicking outside the modal content
+window.addEventListener('click', (event) => {
+  if (event.target === helpModal) {
+    helpModal.style.display = 'none';
+  }
 });
