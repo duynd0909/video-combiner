@@ -9,13 +9,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getVideoFiles: (folderPath) =>
     ipcRenderer.invoke('get-video-files', folderPath),
   // Method to start processing
-  startProcessing: (selectedVideos, saveDirectory, numOutputs, maxDuration) =>
+  startProcessing: (
+    selectedVideos,
+    saveDirectory,
+    numOutputs,
+    limitType,
+    limitValue
+  ) =>
     ipcRenderer.invoke(
       'start-processing',
       selectedVideos,
       saveDirectory,
       numOutputs,
-      maxDuration
+      limitType,
+      limitValue
     ),
   onCombineStatus: (callback) => ipcRenderer.on('combine-status', callback),
   selectSaveDirectory: () => ipcRenderer.invoke('select-save-directory'),

@@ -22,8 +22,32 @@ const helpModalClose = document.getElementById('help-modal-close');
 const revealInExplorerBtn = document.getElementById('reveal-in-explorer-btn');
 const numOutputVideosInput = document.getElementById('num-output-videos');
 
+const countRadio = document.getElementById('limit-by-count');
+const durationRadio = document.getElementById('limit-by-duration');
+const maxDurationInput = document.getElementById('max-duration');
+const numInputVideosInput = document.getElementById('num-input-videos');
+const countConditionDiv = document.getElementById('count-condition');
+const durationConditionDiv = document.getElementById('duration-condition');
+
 let allVideoFiles = [];
 let selectedVideos = [];
+
+countConditionDiv.style.display = 'block';
+
+// Sự kiện thay đổi điều kiện
+countRadio.addEventListener('change', () => {
+  if (countRadio.checked) {
+    countConditionDiv.style.display = 'block';
+    durationConditionDiv.style.display = 'none';
+  }
+});
+
+durationRadio.addEventListener('change', () => {
+  if (durationRadio.checked) {
+    durationConditionDiv.style.display = 'block';
+    countConditionDiv.style.display = 'none';
+  }
+});
 // Event listener for select videos button
 selectVideosBtn.addEventListener('click', async () => {
   const videoPaths = await window.electronAPI.selectVideos();
@@ -245,6 +269,11 @@ window.electronAPI.onCombineStatus((event, message, savePath) => {
 // Event listener for the combine videos button
 combineVideosBtn.addEventListener('click', async () => {
   const numOutputs = parseInt(numOutputVideosInput.value, 10);
+  const limitType = countRadio.checked ? 'count' : 'duration';
+  const limitValue =
+    limitType === 'count'
+      ? parseInt(numInputVideosInput.value, 10)
+      : parseInt(maxDurationInput.value, 10);
 
   if (selectedVideos.length === 0) {
     alert('Chọn ít nhất 1 video để ghép.');
@@ -269,7 +298,8 @@ combineVideosBtn.addEventListener('click', async () => {
     selectedVideos,
     savePath,
     numOutputs,
-    maxDuration
+    limitType,
+    limitValue
   );
 });
 

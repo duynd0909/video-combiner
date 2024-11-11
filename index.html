@@ -32,12 +32,30 @@
       <section id="settings">
         <h2>Cài Đặt</h2>
         <div class="setting-item">
+          <!-- Radio buttons to choose limit condition -->
+          <label>Chọn điều kiện ghép video:</label>
+          <div>
+            <input type="radio" id="limit-by-count" name="limit-condition" value="count" checked>
+            <label for="limit-by-count">Số lượng video</label>
+          </div>
+          <div>
+            <input type="radio" id="limit-by-duration" name="limit-condition" value="duration">
+            <label for="limit-by-duration">Thời lượng tối đa</label>
+          </div>
+        </div>
+
+        <div class="setting-item condition-field" id="count-condition">
+          <label for="num-input-videos">Số Lượng Video Đầu Vào/1 Video Đầu
+            Ra:</label>
+          <input type="number" id="num-input-videos" min="1" value="3" />
+        </div>
+        <div class="setting-item condition-field" id="duration-condition">
           <label for="max-duration">Thời Lượng Tối Đa (giây):</label>
           <input type="number" id="max-duration" min="10" value="60" />
         </div>
         <div class="setting-item">
           <!-- New input field for number of outputs -->
-          <label for="num-output-videos">Number of Output Videos:</label>
+          <label for="num-output-videos">Số Lượng Xuất Video:</label>
           <input type="number" id="num-output-videos" min="1" value="1" />
         </div>
         <button id="combine-videos-btn" disabled>Ghép Video</button>
@@ -95,7 +113,7 @@
             </li>
             <li>
               <strong>Ghép Video:</strong> Các video đã xử lý sẽ được ghép lại với nhau theo thứ tự bạn đã chọn để tạo
-              thành một video duy nhất.
+              thành nhiều video theo cài đặt.
             </li>
             <li>
               <strong>Đảm Bảo Thời Lượng:</strong> Ứng dụng sẽ theo dõi tổng thời lượng của các video. Nếu việc thêm một

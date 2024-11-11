@@ -82,13 +82,21 @@ ipcMain.handle('get-video-files', async (event, folderPath) => {
 // Modify 'start-processing' handler to include numOutputs
 ipcMain.handle(
   'start-processing',
-  async (event, selectedVideos, saveDirectory, numOutputs, maxDuration) => {
+  async (
+    event,
+    selectedVideos,
+    saveDirectory,
+    numOutputs,
+    limitType,
+    limitValue
+  ) => {
     try {
       await combineVideos(
         selectedVideos,
         saveDirectory,
         numOutputs,
-        maxDuration
+        limitType,
+        limitValue
       );
       event.sender.send(
         'combine-status',
@@ -162,41 +170,87 @@ function getTimestamp() {
 
   return `${year}${month}${day}_${hours}${minutes}${seconds}`;
 }
+// Utility function to get a random subset of videos
+function getRandomVideos(videos, count) {
+  const shuffled = videos.sort(() => 0.5 - Math.random()); // Shuffle videos array
+  return shuffled.slice(0, count); // Select the first 'count' videos
+}
+
 // Updated combineVideos function
 async function combineVideos(
   selectedVideos,
   saveDirectory,
   numOutputs,
-  maxDuration
+  limitType,
+  limitValue
 ) {
-  const videoGroups = splitVideosIntoGroups(selectedVideos, numOutputs);
+  const timestamp = getTimestamp(); // To ensure unique output filenames
+  let videoGroups = [];
 
+  if (limitType === 'count') {
+    // Create groups with random selection of videos based on the count limit
+    for (let i = 0; i < numOutputs; i++) {
+      const randomVideos = getRandomVideos(selectedVideos, limitValue);
+      videoGroups.push(randomVideos);
+    }
+  } else if (limitType === 'duration') {
+    // Create groups based on the duration limit
+    for (let i = 0; i < numOutputs; i++) {
+      let cumulativeDuration = 0;
+      let currentGroup = [];
+      const shuffledVideos = selectedVideos.sort(() => 0.5 - Math.random()); // Shuffle for randomness
+
+      for (const videoPath of shuffledVideos) {
+        const videoDuration = await getVideoDuration(videoPath);
+        currentGroup.push(videoPath);
+        cumulativeDuration += videoDuration;
+
+        if (cumulativeDuration >= limitValue) break;
+      }
+
+      // Ensure we add a group, even if the total duration didn't reach limitValue
+      videoGroups.push(
+        currentGroup.length ? currentGroup : getRandomVideos(selectedVideos, 1)
+      );
+    }
+  }
+  console.log('videoGroups', videoGroups);
+  // Process each group of videos to create separate output files
   for (let i = 0; i < videoGroups.length; i++) {
     const group = videoGroups[i];
     const outputPath = path.join(
       saveDirectory,
-      `${getTimestamp()}_output_${i + 1}.mp4`
+      `${timestamp}_output_${i + 1}.mp4`
     );
-    await combineVideoGroup(group, outputPath, maxDuration);
+    await combineVideoGroup(
+      group,
+      outputPath,
+      limitType === 'duration' ? limitValue : null
+    );
   }
 }
-// New function to process and merge a single group
-async function combineVideoGroup(selectedVideos, outputPath, maxDuration) {
+
+// New function to process and merge a single group of videos
+async function combineVideoGroup(
+  selectedVideos,
+  outputPath,
+  maxDuration = null
+) {
   let processedVideos = [];
   let cumulativeDuration = 0;
 
   try {
     for (const videoPath of selectedVideos) {
       const videoDuration = await getVideoDuration(videoPath);
-
-      if (maxDuration && cumulativeDuration + videoDuration > maxDuration) {
+      if (maxDuration && cumulativeDuration + videoDuration >= maxDuration) {
         const remainingTime = maxDuration - cumulativeDuration;
+
         if (remainingTime > 0) {
           const processedVideo = await processVideo(videoPath, remainingTime);
           processedVideos.push(processedVideo);
           cumulativeDuration += remainingTime;
         }
-        break;
+        break; // Stop adding videos once we reach the maxDuration
       } else {
         const processedVideo = await processVideo(videoPath);
         processedVideos.push(processedVideo);
@@ -211,7 +265,7 @@ async function combineVideoGroup(selectedVideos, outputPath, maxDuration) {
       outputPath,
     });
   } catch (error) {
-    console.error('Lỗi trong quá trình xử lý:', error);
+    console.error('Có lỗi trong quá trình ghép:', error);
     cleanupProcessedVideos(processedVideos);
     throw error;
   }

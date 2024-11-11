@@ -74,7 +74,7 @@ main {
 .setting-item {
   display: flex;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 30px;
 }
 
 .setting-item label {
@@ -86,6 +86,7 @@ main {
   flex: 2;
   padding: 8px;
   font-size: 16px;
+
 }
 
 #combine-videos-btn {
@@ -360,4 +361,10 @@ footer p {
   .video-thumbnail {
     width: 80%;
   }
+}
+
+
+/* Ẩn toàn bộ div điều kiện không được chọn */
+.condition-field {
+  display: none;
 }
